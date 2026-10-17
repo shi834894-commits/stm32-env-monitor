@@ -48,6 +48,8 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     BSP/Src/bsp_oled.c
     BSP/Src/bsp_aht20.c
     App/Src/app_main.c
+    App/Src/log.c
+    Core/Src/usart.c
     Middlewares/Third_Party/FreeRTOS-Kernel/tasks.c
     Middlewares/Third_Party/FreeRTOS-Kernel/queue.c
     Middlewares/Third_Party/FreeRTOS-Kernel/list.c

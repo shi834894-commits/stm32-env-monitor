@@ -1,8 +1,11 @@
 #include "bsp_oled.h"
 #include "bsp_i2c.h"
+#include "log.h"
 #include <string.h>
 
 static uint8_t OLED_Buffer[OLED_PAGES][OLED_WIDTH];
+static uint8_t OLED_InitRefreshProgress;
+static uint8_t OLED_Address = OLED_I2C_ADDR;
 
 static const uint8_t OLED_InitCmd[] = {
     0xAE,
@@ -124,7 +127,7 @@ static const uint8_t Font6x8[][6] = {
 static uint8_t OLED_WriteCmd(uint8_t cmd)
 {
     I2C_Start();
-    I2C_SendByte((OLED_I2C_ADDR << 1) | 0x00);
+    I2C_SendByte((OLED_Address << 1) | 0x00);
     if (I2C_WaitAck() != GPIO_PIN_RESET)
     {
         I2C_Stop();
@@ -149,7 +152,7 @@ static uint8_t OLED_WriteCmd(uint8_t cmd)
 static uint8_t OLED_WriteData(uint8_t data)
 {
     I2C_Start();
-    I2C_SendByte((OLED_I2C_ADDR << 1) | 0x00);
+    I2C_SendByte((OLED_Address << 1) | 0x00);
     if (I2C_WaitAck() != GPIO_PIN_RESET)
     {
         I2C_Stop();
@@ -171,18 +174,77 @@ static uint8_t OLED_WriteData(uint8_t data)
     return 1;
 }
 
+static uint8_t OLED_ProbeAddress(uint8_t address)
+{
+    uint8_t ack;
+
+    I2C_Start();
+    I2C_SendByte((address << 1) | 0x00U);
+    ack = I2C_WaitAck();
+    I2C_Stop();
+    return ack == GPIO_PIN_RESET;
+}
+
 uint8_t OLED_Init(void)
 {
+    if (LOG("[OLED] startup delay\r\n") != HAL_OK)
+    {
+        Error_Handler();
+    }
     HAL_Delay(100);
+    if (OLED_ProbeAddress(OLED_I2C_ADDR))
+    {
+        OLED_Address = OLED_I2C_ADDR;
+    }
+    else if (OLED_ProbeAddress(0x3DU))
+    {
+        OLED_Address = 0x3DU;
+    }
+    else
+    {
+        if (LOG("[OLED] no device ACK at 0x3C or 0x3D\r\n") != HAL_OK)
+        {
+            Error_Handler();
+        }
+        return 0;
+    }
+    if (LOG("[OLED] device address 0x%02X\r\n", (unsigned int)OLED_Address) != HAL_OK)
+    {
+        Error_Handler();
+    }
+    if (LOG("[OLED] sending initialization commands\r\n") != HAL_OK)
+    {
+        Error_Handler();
+    }
     for (uint16_t i = 0; i < sizeof(OLED_InitCmd); i++)
     {
         if (!OLED_WriteCmd(OLED_InitCmd[i]))
         {
+            if (LOG("[OLED] initialization command failed at index %u\r\n",
+                    (unsigned int)i) != HAL_OK)
+            {
+                Error_Handler();
+            }
             return 0;
         }
     }
+    if (LOG("[OLED] initialization commands complete\r\n") != HAL_OK)
+    {
+        Error_Handler();
+    }
     OLED_Clear();
-    return OLED_Refresh();
+    OLED_InitRefreshProgress = 1;
+    if (LOG("[OLED] initial refresh started\r\n") != HAL_OK)
+    {
+        Error_Handler();
+    }
+    uint8_t refreshOk = OLED_Refresh();
+    OLED_InitRefreshProgress = 0;
+    if (refreshOk && LOG("[OLED] initial refresh complete\r\n") != HAL_OK)
+    {
+        Error_Handler();
+    }
+    return refreshOk;
 }
 
 void OLED_Clear(void)
@@ -194,6 +256,11 @@ uint8_t OLED_Refresh(void)
 {
     for (uint8_t page = 0; page < OLED_PAGES; page++)
     {
+        if (OLED_InitRefreshProgress &&
+            LOG("[OLED] initial refresh page %u\r\n", (unsigned int)page) != HAL_OK)
+        {
+            Error_Handler();
+        }
         if (!OLED_WriteCmd(0xB0 + page) ||
             !OLED_WriteCmd(0x00) ||
             !OLED_WriteCmd(0x10))

@@ -26,6 +26,7 @@
 #include "task.h"
 
 extern void xPortSysTickHandler(void);
+extern volatile uint8_t g_scheduler_started;
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -160,16 +161,13 @@ void DebugMon_Handler(void)
   */
 void SysTick_Handler(void)
 {
-  /* USER CODE BEGIN SysTick_IRQn 0 */
-  if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED)
+  HAL_IncTick();
+  /* Do not call FreeRTOS from SysTick until the first task has entered.  HAL
+     uses this same interrupt before vTaskStartScheduler() for HAL_Delay(). */
+  if (g_scheduler_started != 0U)
   {
       xPortSysTickHandler();
   }
-  /* USER CODE END SysTick_IRQn 0 */
-  HAL_IncTick();
-  /* USER CODE BEGIN SysTick_IRQn 1 */
-
-  /* USER CODE END SysTick_IRQn 1 */
 }
 
 /******************************************************************************/

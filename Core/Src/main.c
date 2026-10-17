@@ -22,9 +22,14 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "app_main.h"
+#include "log.h"
+#include "usart.h"
 #include "FreeRTOS.h"
 #include "task.h"
 /* USER CODE END Includes */
+
+/* Set by the first application task after the scheduler has started. */
+volatile uint8_t g_scheduler_started = 0U;
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
@@ -100,6 +105,22 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   /* USER CODE BEGIN 2 */
+  for (uint32_t pulse = 0; pulse < 6U; ++pulse)
+  {
+    HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_8);
+    for (volatile uint32_t delay = 0; delay < 800000U; ++delay)
+    {
+    }
+  }
+
+  if (MX_USART1_UART_Init() != HAL_OK || Log_Init() != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (LOG("[BOOT] USART1 logger ready (115200 8N1)\r\n") != HAL_OK)
+  {
+    Error_Handler();
+  }
   if (!App_Init())
   {
     Error_Handler();
@@ -171,6 +192,16 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET);
+
+  /* Turn off the active-low status LED before configuring PA8. */
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
+
+  /*Configure GPIO pin : PA8 */
+  GPIO_InitStruct.Pin = GPIO_PIN_8;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PB8 */
   GPIO_InitStruct.Pin = GPIO_PIN_8;
