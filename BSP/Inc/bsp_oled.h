@@ -9,9 +9,9 @@
 
 #define OLED_I2C_ADDR 0x3C
 
-void OLED_Init(void);
+uint8_t OLED_Init(void);
 void OLED_Clear(void);
-void OLED_Refresh(void);
+uint8_t OLED_Refresh(void);
 void OLED_SetPixel(uint8_t x, uint8_t y, uint8_t val);
 void OLED_DrawChar(uint8_t x, uint8_t y, char ch);
 void OLED_DrawString(uint8_t x, uint8_t y, const char *str);

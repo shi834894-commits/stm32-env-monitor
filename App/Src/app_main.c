@@ -26,12 +26,17 @@ typedef struct {
 
 static QueueHandle_t sensorQueue = NULL;
 static SemaphoreHandle_t i2cMutex = NULL;
+static uint8_t sensorInitialized = 0;
 
-void App_Init(void)
+uint8_t App_Init(void)
 {
     I2C_Init();
-    OLED_Init();
-    AHT20_Init();
+    if (!OLED_Init())
+    {
+        return 0;
+    }
+    sensorInitialized = AHT20_Init();
+    return 1;
 }
 
 void App_CreateTasks(void)
@@ -62,10 +67,28 @@ void SensorTask(void *argument)
 
     for (;;)
     {
+        if (!sensorInitialized)
+        {
+            sensorInitialized = AHT20_Init();
+            if (!sensorInitialized)
+            {
+                msg.valid = 0;
+                xQueueOverwrite(sensorQueue, &msg);
+                vTaskDelay(pdMS_TO_TICKS(SENSOR_READ_INTERVAL_MS));
+                continue;
+            }
+        }
+
         if (xSemaphoreTake(i2cMutex, pdMS_TO_TICKS(I2C_MUTEX_TIMEOUT_MS)) == pdTRUE)
         {
-            AHT20_Trigger();
+            msg.valid = AHT20_Trigger();
             xSemaphoreGive(i2cMutex);
+            if (!msg.valid)
+            {
+                xQueueOverwrite(sensorQueue, &msg);
+                vTaskDelay(pdMS_TO_TICKS(SENSOR_READ_INTERVAL_MS));
+                continue;
+            }
         }
         else
         {
@@ -124,8 +147,12 @@ void DisplayTask(void *argument)
                     OLED_DrawString(0, 44, "ERR");
                 }
 
-                OLED_Refresh();
+                uint8_t displayOk = OLED_Refresh();
                 xSemaphoreGive(i2cMutex);
+                if (!displayOk)
+                {
+                    Error_Handler();
+                }
             }
         }
     }

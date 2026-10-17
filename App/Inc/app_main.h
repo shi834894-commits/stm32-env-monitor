@@ -3,7 +3,7 @@
 
 #include "main.h"
 
-void App_Init(void);
+uint8_t App_Init(void);
 void App_CreateTasks(void);
 
 void SensorTask(void *argument);

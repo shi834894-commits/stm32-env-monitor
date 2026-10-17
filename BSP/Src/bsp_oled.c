@@ -121,39 +121,68 @@ static const uint8_t Font6x8[][6] = {
     {0x08,0x08,0x2A,0x1C,0x08,0x00}, // '~'
 };
 
-static void OLED_WriteCmd(uint8_t cmd)
+static uint8_t OLED_WriteCmd(uint8_t cmd)
 {
     I2C_Start();
     I2C_SendByte((OLED_I2C_ADDR << 1) | 0x00);
-    I2C_WaitAck();
+    if (I2C_WaitAck() != GPIO_PIN_RESET)
+    {
+        I2C_Stop();
+        return 0;
+    }
     I2C_SendByte(0x00);
-    I2C_WaitAck();
+    if (I2C_WaitAck() != GPIO_PIN_RESET)
+    {
+        I2C_Stop();
+        return 0;
+    }
     I2C_SendByte(cmd);
-    I2C_WaitAck();
+    if (I2C_WaitAck() != GPIO_PIN_RESET)
+    {
+        I2C_Stop();
+        return 0;
+    }
     I2C_Stop();
+    return 1;
 }
 
-static void OLED_WriteData(uint8_t data)
+static uint8_t OLED_WriteData(uint8_t data)
 {
     I2C_Start();
     I2C_SendByte((OLED_I2C_ADDR << 1) | 0x00);
-    I2C_WaitAck();
+    if (I2C_WaitAck() != GPIO_PIN_RESET)
+    {
+        I2C_Stop();
+        return 0;
+    }
     I2C_SendByte(0x40);
-    I2C_WaitAck();
+    if (I2C_WaitAck() != GPIO_PIN_RESET)
+    {
+        I2C_Stop();
+        return 0;
+    }
     I2C_SendByte(data);
-    I2C_WaitAck();
+    if (I2C_WaitAck() != GPIO_PIN_RESET)
+    {
+        I2C_Stop();
+        return 0;
+    }
     I2C_Stop();
+    return 1;
 }
 
-void OLED_Init(void)
+uint8_t OLED_Init(void)
 {
     HAL_Delay(100);
     for (uint16_t i = 0; i < sizeof(OLED_InitCmd); i++)
     {
-        OLED_WriteCmd(OLED_InitCmd[i]);
+        if (!OLED_WriteCmd(OLED_InitCmd[i]))
+        {
+            return 0;
+        }
     }
     OLED_Clear();
-    OLED_Refresh();
+    return OLED_Refresh();
 }
 
 void OLED_Clear(void)
@@ -161,18 +190,25 @@ void OLED_Clear(void)
     memset(OLED_Buffer, 0, sizeof(OLED_Buffer));
 }
 
-void OLED_Refresh(void)
+uint8_t OLED_Refresh(void)
 {
     for (uint8_t page = 0; page < OLED_PAGES; page++)
     {
-        OLED_WriteCmd(0xB0 + page);
-        OLED_WriteCmd(0x00);
-        OLED_WriteCmd(0x10);
+        if (!OLED_WriteCmd(0xB0 + page) ||
+            !OLED_WriteCmd(0x00) ||
+            !OLED_WriteCmd(0x10))
+        {
+            return 0;
+        }
         for (uint8_t col = 0; col < OLED_WIDTH; col++)
         {
-            OLED_WriteData(OLED_Buffer[page][col]);
+            if (!OLED_WriteData(OLED_Buffer[page][col]))
+            {
+                return 0;
+            }
         }
     }
+    return 1;
 }
 
 void OLED_SetPixel(uint8_t x, uint8_t y, uint8_t val)
@@ -220,6 +256,11 @@ void OLED_DrawString(uint8_t x, uint8_t y, const char *str)
 void OLED_DrawNum(uint8_t x, uint8_t y, uint32_t num, uint8_t len)
 {
     char buf[12];
+    if (len == 0 || len >= sizeof(buf))
+    {
+        return;
+    }
+
     for (int8_t i = len - 1; i >= 0; i--)
     {
         buf[i] = (num % 10) + '0';
@@ -234,8 +275,17 @@ void OLED_DrawFloat(uint8_t x, uint8_t y, float num, uint8_t int_len, uint8_t fr
     char buf[16];
     uint8_t idx = 0;
 
+    if (int_len == 0 || int_len >= 10 || fra_len > sizeof(buf) - int_len - 2)
+    {
+        return;
+    }
+
     if (num < 0)
     {
+        if (fra_len > sizeof(buf) - int_len - 3)
+        {
+            return;
+        }
         buf[idx++] = '-';
         num = -num;
     }

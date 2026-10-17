@@ -100,7 +100,10 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   /* USER CODE BEGIN 2 */
-  App_Init();
+  if (!App_Init())
+  {
+    Error_Handler();
+  }
   App_CreateTasks();
   vTaskStartScheduler();
 

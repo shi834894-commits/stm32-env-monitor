@@ -5,14 +5,26 @@ static uint8_t AHT20_IsCalibrated(void)
 {
     I2C_Start();
     I2C_SendByte((AHT20_I2C_ADDR << 1) | 0x00);
-    I2C_WaitAck();
+    if (I2C_WaitAck() != GPIO_PIN_RESET)
+    {
+        I2C_Stop();
+        return 0;
+    }
     I2C_SendByte(0x71);
-    I2C_WaitAck();
+    if (I2C_WaitAck() != GPIO_PIN_RESET)
+    {
+        I2C_Stop();
+        return 0;
+    }
     I2C_Stop();
 
     I2C_Start();
     I2C_SendByte((AHT20_I2C_ADDR << 1) | 0x01);
-    I2C_WaitAck();
+    if (I2C_WaitAck() != GPIO_PIN_RESET)
+    {
+        I2C_Stop();
+        return 0;
+    }
     uint8_t status = I2C_RecvByte();
     I2C_SendNack();
     I2C_Stop();
@@ -20,51 +32,95 @@ static uint8_t AHT20_IsCalibrated(void)
     return (status & 0x08) ? 1 : 0;
 }
 
-static void AHT20_Calibrate(void)
+static uint8_t AHT20_Calibrate(void)
 {
     I2C_Start();
     I2C_SendByte((AHT20_I2C_ADDR << 1) | 0x00);
-    I2C_WaitAck();
+    if (I2C_WaitAck() != GPIO_PIN_RESET)
+    {
+        I2C_Stop();
+        return 0;
+    }
     I2C_SendByte(0xBE);
-    I2C_WaitAck();
+    if (I2C_WaitAck() != GPIO_PIN_RESET)
+    {
+        I2C_Stop();
+        return 0;
+    }
     I2C_SendByte(0x08);
-    I2C_WaitAck();
+    if (I2C_WaitAck() != GPIO_PIN_RESET)
+    {
+        I2C_Stop();
+        return 0;
+    }
     I2C_SendByte(0x00);
-    I2C_WaitAck();
+    if (I2C_WaitAck() != GPIO_PIN_RESET)
+    {
+        I2C_Stop();
+        return 0;
+    }
     I2C_Stop();
     HAL_Delay(10);
+    return 1;
 }
 
-void AHT20_Init(void)
+uint8_t AHT20_Init(void)
 {
     HAL_Delay(40);
     if (!AHT20_IsCalibrated())
     {
-        AHT20_Calibrate();
+        return AHT20_Calibrate();
     }
+    return 1;
 }
 
-void AHT20_Trigger(void)
+uint8_t AHT20_Trigger(void)
 {
     I2C_Start();
     I2C_SendByte((AHT20_I2C_ADDR << 1) | 0x00);
-    I2C_WaitAck();
+    if (I2C_WaitAck() != GPIO_PIN_RESET)
+    {
+        I2C_Stop();
+        return 0;
+    }
     I2C_SendByte(0xAC);
-    I2C_WaitAck();
+    if (I2C_WaitAck() != GPIO_PIN_RESET)
+    {
+        I2C_Stop();
+        return 0;
+    }
     I2C_SendByte(0x33);
-    I2C_WaitAck();
+    if (I2C_WaitAck() != GPIO_PIN_RESET)
+    {
+        I2C_Stop();
+        return 0;
+    }
     I2C_SendByte(0x00);
-    I2C_WaitAck();
+    if (I2C_WaitAck() != GPIO_PIN_RESET)
+    {
+        I2C_Stop();
+        return 0;
+    }
     I2C_Stop();
+    return 1;
 }
 
 uint8_t AHT20_ReadResult(AHT20_Data_t *data)
 {
     uint8_t buf[6];
 
+    if (data == NULL)
+    {
+        return 0;
+    }
+
     I2C_Start();
     I2C_SendByte((AHT20_I2C_ADDR << 1) | 0x01);
-    I2C_WaitAck();
+    if (I2C_WaitAck() != GPIO_PIN_RESET)
+    {
+        I2C_Stop();
+        return 0;
+    }
 
     for (uint8_t i = 0; i < 6; i++)
     {
