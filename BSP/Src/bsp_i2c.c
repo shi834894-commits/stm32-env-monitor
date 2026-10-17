@@ -1,4 +1,6 @@
 #include "bsp_i2c.h"
+#include "FreeRTOS.h"
+#include "task.h"
 
 static void I2C_Delay(void)
 {
@@ -49,6 +51,7 @@ void I2C_Init(void)
 
 void I2C_Start(void)
 {
+    taskENTER_CRITICAL();
     I2C_SDA_Mode_Output();
     I2C_SDA_HIGH();
     I2C_SCL_HIGH();
@@ -57,10 +60,12 @@ void I2C_Start(void)
     I2C_Delay();
     I2C_SCL_LOW();
     I2C_Delay();
+    taskEXIT_CRITICAL();
 }
 
 void I2C_Stop(void)
 {
+    taskENTER_CRITICAL();
     I2C_SDA_Mode_Output();
     I2C_SCL_LOW();
     I2C_SDA_LOW();
@@ -69,10 +74,12 @@ void I2C_Stop(void)
     I2C_Delay();
     I2C_SDA_HIGH();
     I2C_Delay();
+    taskEXIT_CRITICAL();
 }
 
 void I2C_SendAck(void)
 {
+    taskENTER_CRITICAL();
     I2C_SDA_Mode_Output();
     I2C_SCL_LOW();
     I2C_SDA_LOW();
@@ -81,10 +88,12 @@ void I2C_SendAck(void)
     I2C_Delay();
     I2C_SCL_LOW();
     I2C_Delay();
+    taskEXIT_CRITICAL();
 }
 
 void I2C_SendNack(void)
 {
+    taskENTER_CRITICAL();
     I2C_SDA_Mode_Output();
     I2C_SCL_LOW();
     I2C_SDA_HIGH();
@@ -93,11 +102,13 @@ void I2C_SendNack(void)
     I2C_Delay();
     I2C_SCL_LOW();
     I2C_Delay();
+    taskEXIT_CRITICAL();
 }
 
 uint8_t I2C_WaitAck(void)
 {
     uint8_t ack;
+    taskENTER_CRITICAL();
     I2C_SDA_Mode_Input();
     I2C_SDA_HIGH();
     I2C_SCL_LOW();
@@ -108,11 +119,13 @@ uint8_t I2C_WaitAck(void)
     I2C_SCL_LOW();
     I2C_Delay();
     I2C_SDA_Mode_Output();
+    taskEXIT_CRITICAL();
     return ack;
 }
 
 void I2C_SendByte(uint8_t byte)
 {
+    taskENTER_CRITICAL();
     I2C_SDA_Mode_Output();
     I2C_SCL_LOW();
     for (uint8_t i = 0; i < 8; i++)
@@ -128,11 +141,13 @@ void I2C_SendByte(uint8_t byte)
         I2C_SCL_LOW();
         I2C_Delay();
     }
+    taskEXIT_CRITICAL();
 }
 
 uint8_t I2C_RecvByte(void)
 {
     uint8_t byte = 0;
+    taskENTER_CRITICAL();
     I2C_SDA_Mode_Input();
     I2C_SDA_HIGH();
     for (uint8_t i = 0; i < 8; i++)
@@ -148,5 +163,6 @@ uint8_t I2C_RecvByte(void)
         I2C_Delay();
     }
     I2C_SDA_Mode_Output();
+    taskEXIT_CRITICAL();
     return byte;
 }
