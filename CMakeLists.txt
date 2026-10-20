@@ -47,7 +47,9 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     BSP/Src/bsp_i2c.c
     BSP/Src/bsp_oled.c
     BSP/Src/bsp_aht20.c
+    BSP/Src/bsp_rs485.c
     App/Src/app_main.c
+    App/Src/modbus_task.c
     App/Src/log.c
     Core/Src/usart.c
     Middlewares/Third_Party/FreeRTOS-Kernel/tasks.c

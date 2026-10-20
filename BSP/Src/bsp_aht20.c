@@ -1,5 +1,22 @@
 #include "bsp_aht20.h"
 #include "bsp_i2c.h"
+#include "FreeRTOS.h"
+#include "task.h"
+
+/* The HAL tick is not advancing on this startup path.  Use an RTOS delay
+   once the scheduler is active and a bounded CPU wait before it starts. */
+static void AHT20_DelayMs(uint32_t milliseconds)
+{
+    if (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING)
+    {
+        vTaskDelay(pdMS_TO_TICKS(milliseconds));
+        return;
+    }
+
+    for (volatile uint32_t count = 0; count < (milliseconds * 8000U); ++count)
+    {
+    }
+}
 
 static uint8_t AHT20_IsCalibrated(void)
 {
@@ -60,13 +77,13 @@ static uint8_t AHT20_Calibrate(void)
         return 0;
     }
     I2C_Stop();
-    HAL_Delay(10);
+    AHT20_DelayMs(10);
     return 1;
 }
 
 uint8_t AHT20_Init(void)
 {
-    HAL_Delay(40);
+    AHT20_DelayMs(40);
     if (!AHT20_IsCalibrated())
     {
         return AHT20_Calibrate();

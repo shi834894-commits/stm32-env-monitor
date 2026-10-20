@@ -4,8 +4,10 @@
 #include "main.h"
 
 #define OLED_WIDTH    128
-#define OLED_HEIGHT   64
-#define OLED_PAGES    8
+/* The connected module is used as a 128x32 panel.  Keeping all application
+   content in the first 32 rows also remains visible on a 128x64 panel. */
+#define OLED_HEIGHT   32
+#define OLED_PAGES    4
 
 #define OLED_I2C_ADDR 0x3C
 

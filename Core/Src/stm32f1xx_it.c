@@ -24,6 +24,8 @@
 /* USER CODE BEGIN Includes */
 #include "FreeRTOS.h"
 #include "task.h"
+#include "usart.h"
+#include "bsp_rs485.h"
 
 extern void xPortSysTickHandler(void);
 extern volatile uint8_t g_scheduler_started;
@@ -168,6 +170,11 @@ void SysTick_Handler(void)
   {
       xPortSysTickHandler();
   }
+}
+
+void USART2_IRQHandler(void)
+{
+  RS485_IRQHandler();
 }
 
 /******************************************************************************/

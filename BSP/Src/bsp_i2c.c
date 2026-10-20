@@ -29,7 +29,7 @@ static void I2C_SDA_Mode_Output(void)
     GPIO_InitTypeDef GPIO_InitStruct = {0};
     GPIO_InitStruct.Pin = GPIO_PIN_9;
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 }
@@ -41,6 +41,37 @@ static void I2C_SDA_Mode_Input(void)
     GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
     GPIO_InitStruct.Pull = GPIO_PULLUP;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+}
+
+static void I2C_RecoverBus(void)
+{
+    /* Recover a bus left in the middle of a transaction after reset. */
+    I2C_SDA_Mode_Input();
+    I2C_SCL_HIGH();
+    I2C_Delay();
+    if (I2C_SDA_READ() == GPIO_PIN_RESET)
+    {
+        I2C_SDA_Mode_Output();
+        for (uint8_t pulse = 0; pulse < 9U; pulse++)
+        {
+            I2C_SCL_LOW();
+            I2C_Delay();
+            I2C_SCL_HIGH();
+            I2C_Delay();
+        }
+
+        /* Generate STOP: SDA low while SCL is low, then release both. */
+        I2C_SCL_LOW();
+        I2C_SDA_LOW();
+        I2C_Delay();
+        I2C_SCL_HIGH();
+        I2C_Delay();
+        I2C_SDA_HIGH();
+        I2C_Delay();
+    }
+    I2C_SDA_Mode_Output();
+    I2C_SCL_HIGH();
+    I2C_SDA_HIGH();
 }
 
 void I2C_Init(void)
@@ -63,6 +94,7 @@ void I2C_Init(void)
 
     I2C_SCL_HIGH();                              // 总线空闲：SCL 置高
     I2C_SDA_HIGH();                              // 总线空闲：SDA 置高
+    I2C_RecoverBus();
 }
 
 void I2C_Start(void)

@@ -9,8 +9,11 @@
 #include <stdio.h>
 
 #define LOG_BUFFER_SIZE       192
-#define LOG_MUTEX_TIMEOUT_MS  1000
-#define LOG_TX_TIMEOUT_MS     1000
+#define LOG_MUTEX_TIMEOUT_MS  100
+/* 192 bytes at 115200 baud take about 17 ms.  Keep logging bounded so a
+   disconnected or misconfigured UART cannot stall application startup for
+   seconds. */
+#define LOG_TX_TIMEOUT_MS     50
 
 static SemaphoreHandle_t logMutex;
 

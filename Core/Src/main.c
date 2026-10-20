@@ -26,6 +26,7 @@
 #include "usart.h"
 #include "FreeRTOS.h"
 #include "task.h"
+#include "bsp_rs485.h"
 /* USER CODE END Includes */
 
 /* Set by the first application task after the scheduler has started. */
@@ -113,13 +114,19 @@ int main(void)
     }
   }
 
-  if (MX_USART1_UART_Init() != HAL_OK || Log_Init() != HAL_OK)
+  /* Logging is diagnostic only.  A UART initialization problem must not
+     prevent the OLED/I2C application from starting. */
+  (void)MX_USART1_UART_Init();
+  (void)Log_Init();
+  (void)LOG("[BOOT] USART1 logger ready (115200 8N1)\r\n");
+  if (MX_USART2_UART_Init() == HAL_OK)
   {
-    Error_Handler();
+    RS485_Init();
+    (void)LOG("[BOOT] USART2 RS485 ready (115200 8N1)\r\n");
   }
-  if (LOG("[BOOT] USART1 logger ready (115200 8N1)\r\n") != HAL_OK)
+  else
   {
-    Error_Handler();
+    (void)LOG("[ERR] USART2 initialization failed\r\n");
   }
   if (!App_Init())
   {
@@ -193,6 +200,9 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET);
 
+  /* MAX3485 starts in receive mode. */
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_RESET);
+
   /* Turn off the active-low status LED before configuring PA8. */
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
 
@@ -201,6 +211,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /* Configure PA1: MAX3485 DE/RE direction control. */
+  GPIO_InitStruct.Pin = GPIO_PIN_1;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PB8 */

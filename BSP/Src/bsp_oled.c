@@ -1,23 +1,21 @@
-#include "bsp_oled.h"
+﻿#include "bsp_oled.h"
 #include "bsp_i2c.h"
 #include "log.h"
 #include <string.h>
 
 static uint8_t OLED_Buffer[OLED_PAGES][OLED_WIDTH];
-static uint8_t OLED_InitRefreshProgress;
-static uint8_t OLED_Address = OLED_I2C_ADDR;
 
 static const uint8_t OLED_InitCmd[] = {
     0xAE,
     0xD5, 0x80,
-    0xA8, 0x3F,
+    0xA8, 0x1F,
     0xD3, 0x00,
     0x40,
     0x8D, 0x14,
     0x20, 0x00,
     0xA1,
     0xC8,
-    0xDA, 0x12,
+    0xDA, 0x02,
     0x81, 0xCF,
     0xD9, 0xF1,
     0xDB, 0x40,
@@ -126,125 +124,63 @@ static const uint8_t Font6x8[][6] = {
 
 static uint8_t OLED_WriteCmd(uint8_t cmd)
 {
+    uint8_t ok = 1U;
+
     I2C_Start();
-    I2C_SendByte((OLED_Address << 1) | 0x00);
-    if (I2C_WaitAck() != GPIO_PIN_RESET)
-    {
-        I2C_Stop();
-        return 0;
-    }
+    I2C_SendByte((OLED_I2C_ADDR << 1) | 0x00);
+    if (I2C_WaitAck() != GPIO_PIN_RESET) ok = 0U;
     I2C_SendByte(0x00);
-    if (I2C_WaitAck() != GPIO_PIN_RESET)
-    {
-        I2C_Stop();
-        return 0;
-    }
+    if (I2C_WaitAck() != GPIO_PIN_RESET) ok = 0U;
     I2C_SendByte(cmd);
-    if (I2C_WaitAck() != GPIO_PIN_RESET)
-    {
-        I2C_Stop();
-        return 0;
-    }
+    if (I2C_WaitAck() != GPIO_PIN_RESET) ok = 0U;
     I2C_Stop();
-    return 1;
+    return ok;
 }
 
 static uint8_t OLED_WriteData(uint8_t data)
 {
+    uint8_t ok = 1U;
+
     I2C_Start();
-    I2C_SendByte((OLED_Address << 1) | 0x00);
-    if (I2C_WaitAck() != GPIO_PIN_RESET)
-    {
-        I2C_Stop();
-        return 0;
-    }
+    I2C_SendByte((OLED_I2C_ADDR << 1) | 0x00);
+    if (I2C_WaitAck() != GPIO_PIN_RESET) ok = 0U;
     I2C_SendByte(0x40);
-    if (I2C_WaitAck() != GPIO_PIN_RESET)
-    {
-        I2C_Stop();
-        return 0;
-    }
+    if (I2C_WaitAck() != GPIO_PIN_RESET) ok = 0U;
     I2C_SendByte(data);
-    if (I2C_WaitAck() != GPIO_PIN_RESET)
-    {
-        I2C_Stop();
-        return 0;
-    }
+    if (I2C_WaitAck() != GPIO_PIN_RESET) ok = 0U;
     I2C_Stop();
-    return 1;
-}
-
-static uint8_t OLED_ProbeAddress(uint8_t address)
-{
-    uint8_t ack;
-
-    I2C_Start();
-    I2C_SendByte((address << 1) | 0x00U);
-    ack = I2C_WaitAck();
-    I2C_Stop();
-    return ack == GPIO_PIN_RESET;
+    return ok;
 }
 
 uint8_t OLED_Init(void)
 {
-    if (LOG("[OLED] startup delay\r\n") != HAL_OK)
+    (void)LOG("[OLED] enter init\r\n");
+    /* OLED_Init runs before vTaskStartScheduler().  Keep this power-up wait
+       independent of the HAL/RTOS tick so a broken or masked SysTick cannot
+       strand startup before the first I2C command.  The MCU runs from HSI
+       (8 MHz); this conservative loop is roughly a 100 ms settling delay. */
+    for (volatile uint32_t delay = 0; delay < 800000U; ++delay)
     {
-        Error_Handler();
     }
-    HAL_Delay(100);
-    if (OLED_ProbeAddress(OLED_I2C_ADDR))
-    {
-        OLED_Address = OLED_I2C_ADDR;
-    }
-    else if (OLED_ProbeAddress(0x3DU))
-    {
-        OLED_Address = 0x3DU;
-    }
-    else
-    {
-        if (LOG("[OLED] no device ACK at 0x3C or 0x3D\r\n") != HAL_OK)
-        {
-            Error_Handler();
-        }
-        return 0;
-    }
-    if (LOG("[OLED] device address 0x%02X\r\n", (unsigned int)OLED_Address) != HAL_OK)
-    {
-        Error_Handler();
-    }
-    if (LOG("[OLED] sending initialization commands\r\n") != HAL_OK)
-    {
-        Error_Handler();
-    }
+    (void)LOG("[OLED] delay done\r\n");
     for (uint16_t i = 0; i < sizeof(OLED_InitCmd); i++)
     {
+        (void)LOG("[OLED] cmd %u\r\n", (unsigned int)i);
         if (!OLED_WriteCmd(OLED_InitCmd[i]))
         {
-            if (LOG("[OLED] initialization command failed at index %u\r\n",
-                    (unsigned int)i) != HAL_OK)
-            {
-                Error_Handler();
-            }
-            return 0;
+            (void)LOG("[OLED] init command %u NACK\r\n", (unsigned int)i);
+            return 0U;
         }
     }
-    if (LOG("[OLED] initialization commands complete\r\n") != HAL_OK)
-    {
-        Error_Handler();
-    }
+    (void)LOG("[OLED] cmds done\r\n");
     OLED_Clear();
-    OLED_InitRefreshProgress = 1;
-    if (LOG("[OLED] initial refresh started\r\n") != HAL_OK)
+    (void)LOG("[OLED] refresh begin\r\n");
+    if (!OLED_Refresh())
     {
-        Error_Handler();
+        return 0U;
     }
-    uint8_t refreshOk = OLED_Refresh();
-    OLED_InitRefreshProgress = 0;
-    if (refreshOk && LOG("[OLED] initial refresh complete\r\n") != HAL_OK)
-    {
-        Error_Handler();
-    }
-    return refreshOk;
+    (void)LOG("[OLED] refresh done\r\n");
+    return 1;
 }
 
 void OLED_Clear(void)
@@ -256,22 +192,18 @@ uint8_t OLED_Refresh(void)
 {
     for (uint8_t page = 0; page < OLED_PAGES; page++)
     {
-        if (OLED_InitRefreshProgress &&
-            LOG("[OLED] initial refresh page %u\r\n", (unsigned int)page) != HAL_OK)
-        {
-            Error_Handler();
-        }
+        (void)LOG("[OLED] page %u\r\n", (unsigned int)page);
         if (!OLED_WriteCmd(0xB0 + page) ||
             !OLED_WriteCmd(0x00) ||
             !OLED_WriteCmd(0x10))
         {
-            return 0;
+            return 0U;
         }
         for (uint8_t col = 0; col < OLED_WIDTH; col++)
         {
             if (!OLED_WriteData(OLED_Buffer[page][col]))
             {
-                return 0;
+                return 0U;
             }
         }
     }
@@ -323,11 +255,6 @@ void OLED_DrawString(uint8_t x, uint8_t y, const char *str)
 void OLED_DrawNum(uint8_t x, uint8_t y, uint32_t num, uint8_t len)
 {
     char buf[12];
-    if (len == 0 || len >= sizeof(buf))
-    {
-        return;
-    }
-
     for (int8_t i = len - 1; i >= 0; i--)
     {
         buf[i] = (num % 10) + '0';
@@ -342,17 +269,8 @@ void OLED_DrawFloat(uint8_t x, uint8_t y, float num, uint8_t int_len, uint8_t fr
     char buf[16];
     uint8_t idx = 0;
 
-    if (int_len == 0 || int_len >= 10 || fra_len > sizeof(buf) - int_len - 2)
-    {
-        return;
-    }
-
     if (num < 0)
     {
-        if (fra_len > sizeof(buf) - int_len - 3)
-        {
-            return;
-        }
         buf[idx++] = '-';
         num = -num;
     }
